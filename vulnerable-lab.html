@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShopLab — Tienda Demo</title>
+
+  <!-- ❌ VULNERABILIDAD #1: Script externo sin SRI y cargado por HTTP -->
+  <script src="http://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- ❌ VULNERABILIDAD #2: Script externo via protocolo relativo (sin https forzado) -->
+  <script src="//cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+
+  <style>
+    /* CSP no está definida en meta tag — se haría en servidor -->
+    /* unsafe-inline activo al no tener CSP restrictiva */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --surface: #16161e;
+      --surface2: #1e1e2a;
+      --accent: #e84545;
+      --accent2: #f0a500;
+      --text: #e8e8f0;
+      --muted: #7070a0;
+      --border: #2a2a3e;
+      --green: #2ecc71;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* NAV */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .logo {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--accent);
+    }
+    .logo span { color: var(--text); }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 1.5rem;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #1a0a0a 0%, #0f0f13 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 3rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .hero-text h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      line-height: 1.15;
+      margin-bottom: 0.75rem;
+    }
+    .hero-text h1 em {
+      color: var(--accent);
+      font-style: normal;
+    }
+    .hero-text p {
+      color: var(--muted);
+      font-size: 1rem;
+      max-width: 420px;
+      line-height: 1.6;
+    }
+    .vuln-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      letter-spacing: 1px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* MAIN LAYOUT */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 2rem;
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    /* CARDS */
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* SEARCH — XSS reflejo */
+    .search-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .search-bar input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-bar input:focus { border-color: var(--accent); }
+    .search-bar button, .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .search-bar button:hover, .btn:hover { opacity: 0.85; }
+
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.8rem 1rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      min-height: 36px;
+    }
+
+    /* COMMENT SECTION */
+    textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.7rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      font-family: inherit;
+      margin-bottom: 0.6rem;
+    }
+    textarea:focus { border-color: var(--accent); }
+
+    .comment-list {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .comment-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.7rem 1rem;
+      font-size: 0.85rem;
+    }
+    .comment-item .comment-author {
+      font-size: 0.75rem;
+      color: var(--accent2);
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+
+    /* LOGIN FORM */
+    .form-group { margin-bottom: 0.9rem; }
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      letter-spacing: 0.5px;
+    }
+    .form-group input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.6rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+
+    .login-result {
+      margin-top: 0.8rem;
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      display: none;
+    }
+    .login-result.ok { background: #0e2e1e; border: 1px solid var(--green); color: var(--green); }
+    .login-result.err { background: #2e0e0e; border: 1px solid var(--accent); color: var(--accent); }
+
+    /* SQL HINT */
+    .sql-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      font-family: 'Courier New', monospace;
+    }
+    .sql-hint span { color: var(--accent2); }
+
+    /* VULN PANEL (sidebar) */
+    .vuln-panel .card {
+      border-color: #2e1a1a;
+    }
+    .vuln-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .vuln-item:last-child { border-bottom: none; }
+    .vuln-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .vuln-icon.red { background: #2e0e0e; color: var(--accent); }
+    .vuln-icon.orange { background: #2e1e00; color: var(--accent2); }
+    .vuln-info strong {
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+    .vuln-info p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* SCORE */
+    .score-display {
+      text-align: center;
+      padding: 1rem 0;
+    }
+    .score-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 900;
+      margin: 0 auto 0.75rem;
+    }
+    .score-number {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--accent);
+    }
+    .score-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+    footer strong { color: var(--accent); }
+
+    .tag-lab {
+      display: inline-block;
+      background: #1a1a2e;
+      border: 1px solid #3a3a6e;
+      color: #8080cc;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Shop<span>Lab</span></div>
+  <div class="nav-links">
+    <a href="#">Inicio</a>
+    <a href="#">Productos</a>
+    <a href="#">Admin</a>
+    <a href="#">Contacto</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-text">
+    <h1>Laboratorio de<br/><em>Seguridad Web</em></h1>
+    <p>Página de práctica con vulnerabilidades intencionales. 
+    Úsala para aprender ataques XSS, SQL Injection y falta de SRI en un entorno controlado.</p>
+  </div>
+  <div style="text-align:right">
+    <div class="score-display">
+      <div class="score-circle">D</div>
+      <div class="score-number">30 / 100</div>
+      <div class="score-label">HTTP Observatory Score</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- COLUMNA IZQUIERDA -->
+  <div>
+
+    <!-- XSS REFLEJADO -->
+    <div class="section-title">
+      Vulnerabilidad 1
+    </div>
+    <div class="card">
+      <h2>
+        🔍 Búsqueda de productos
+        <span class="vuln-badge">XSS REFLEJADO</span>
+      </h2>
+      <p style="font-size:0.82rem; color:var(--muted); margin-bottom:1rem;">
+        El resultado se inserta directo en el DOM sin sanitizar. Prueba inyectar un script.
+      </p>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder='Ej: zapatos  ó  <img src=x onerror=alert(1)>' />
+        <button onclick="doSearch()">Buscar</button>
+      </div>
+      <div class="result-box" id="searchResult">Los resultados aparecerán aquí…</div>
+      <div class="sql-hint">Prueba: <span>&lt;script&gt;alert('XSS')&lt;/script&gt;</span> o <span>&lt;img src=x onerror=alert(document.cookie)&gt;</span></div>
+    </div>
+
+    <!-- XSS ALMACENADO -->
+    <div class="section-title">
+      Vulnerabilidad 2
+    </div>
+    <div class="card">
+      <h2>
+        💬 Comentarios de productos
+        <span class="vuln-badge">XSS ALMACENADO</span>
+      </h2>
+      <p style="font-size:0.82rem; color:var(--muted); margin-bottom:1rem;">
+        Los comentarios se guardan y renderizan como HTML sin escapar.
+      </p>
+      <textarea id="commentInput" placeholder='Escribe un comentario... ó prueba: <b>negrita</b> ó <img src=x onerror=alert("stored XSS")>'></textarea>
+      <button class="btn" onclick="addComment()">Publicar comentario</button>
+      <div class="comment-list" id="commentList">
+        <div class="comment-item">
+          <div class="comment-author">usuario_demo</div>
+          <div>Excelente producto, lo recomiendo mucho.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SQL INJECTION -->
+    <div class="section-title">
+      Vulnerabilidad 3
+    </div>
+    <div class="card">
+      <h2>
+        🔐 Iniciar sesión
+        <span class="vuln-badge">SQL INJECTION</span>
+      </h2>
+      <p style="font-size:0.82rem; color:var(--muted); margin-bottom:1rem;">
+        La consulta SQL se construye concatenando el input directamente. Sin prepared statements.
+      </p>
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="sqlUser" placeholder="admin" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="sqlPass" placeholder="password" />
+      </div>
+      <div class="sql-hint" style="margin-bottom:0.8rem">
+        Query simulada: <span>SELECT * FROM users WHERE user='<span id="liveUser">?</span>' AND pass='<span id="livePass">?</span>'</span>
+      </div>
+      <button class="btn" onclick="doLogin()">Entrar</button>
+      <div class="login-result" id="loginResult"></div>
+      <div class="sql-hint" style="margin-top:0.8rem">
+        Payload de bypass: usuario = <span>' OR '1'='1</span> &nbsp;|&nbsp; contraseña = <span>cualquier cosa</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- COLUMNA DERECHA: panel de vulnerabilidades -->
+  <div class="vuln-panel">
+    <div class="section-title">Panel de vulnerabilidades</div>
+
+    <div class="card">
+      <h2>🛡️ Estado del lab</h2>
+
+      <div class="vuln-item">
+        <div class="vuln-icon red">✕</div>
+        <div class="vuln-info">
+          <strong>CSP: unsafe-inline activo</strong>
+          <p>No hay Content Security Policy restrictiva. Scripts inline y inyectados se ejecutan libremente.</p>
+        </div>
+      </div>
+
+      <div class="vuln-item">
+        <div class="vuln-icon red">✕</div>
+        <div class="vuln-info">
+          <strong>Sin Subresource Integrity</strong>
+          <p>jQuery y Lodash se cargan sin atributo <code>integrity</code>. Un CDN comprometido ejecutaría código malicioso.</p>
+        </div>
+      </div>
+
+      <div class="vuln-item">
+        <div class="vuln-icon red">✕</div>
+        <div class="vuln-info">
+          <strong>Script por HTTP (no HTTPS)</strong>
+          <p>jQuery se carga por HTTP plano, expuesto a ataques Man-in-the-Middle.</p>
+        </div>
+      </div>
+
+      <div class="vuln-item">
+        <div class="vuln-icon red">✕</div>
+        <div class="vuln-info">
+          <strong>XSS Reflejado</strong>
+          <p>El input de búsqueda se inserta con <code>innerHTML</code> sin sanitizar.</p>
+        </div>
+      </div>
+
+      <div class="vuln-item">
+        <div class="vuln-icon red">✕</div>
+        <div class="vuln-info">
+          <strong>XSS Almacenado</strong>
+          <p>Los comentarios se renderizan como HTML. Un atacante puede persistir scripts maliciosos.</p>
+        </div>
+      </div>
+
+      <div class="vuln-item">
+        <div class="vuln-icon orange">!</div>
+        <div class="vuln-info">
+          <strong>SQL Injection (simulado)</strong>
+          <p>Login acepta <code>' OR '1'='1</code> como bypass. Consulta sin parámetros preparados.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card" style="border-color: #1a2e1a">
+      <h2 style="color: var(--green)">✅ Cómo practicar</h2>
+      <ol style="font-size:0.8rem; color:var(--muted); line-height:1.8; padding-left:1.1rem;">
+        <li>Inyecta <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> en la búsqueda</li>
+        <li>Publica un comentario con HTML o script</li>
+        <li>Usa <code>' OR '1'='1</code> en el login</li>
+        <li>Inspecciona los scripts cargados (sin SRI)</li>
+        <li>Revisa la respuesta en HTTP Observatory</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span class="tag-lab">⚗️ entorno de lab</span>
+  Esta página contiene <strong>vulnerabilidades intencionales</strong> solo para fines educativos.<br/>
+  No usar en producción. © ShopLab Security Lab 2026
+</footer>
+
+<script>
+  // ❌ VULNERABILIDAD: innerHTML sin sanitizar = XSS Reflejado
+  function doSearch() {
+    const query = document.getElementById('searchInput').value;
+    const box = document.getElementById('searchResult');
+    // Esto es INSEGURO — se hace a propósito para el lab
+    box.innerHTML = 'Resultados para: <strong>' + query + '</strong>';
+  }
+
+  // ❌ VULNERABILIDAD: innerHTML sin sanitizar = XSS Almacenado (en memoria)
+  function addComment() {
+    const text = document.getElementById('commentInput').value;
+    if (!text.trim()) return;
+    const list = document.getElementById('commentList');
+    const div = document.createElement('div');
+    div.className = 'comment-item';
+    // Esto es INSEGURO — se hace a propósito para el lab
+    div.innerHTML = `<div class="comment-author">visitante_${Math.floor(Math.random()*9000+1000)}</div><div>${text}</div>`;
+    list.prepend(div);
+    document.getElementById('commentInput').value = '';
+  }
+
+  // Live preview de la query SQL (simulado)
+  document.getElementById('sqlUser').addEventListener('input', function() {
+    document.getElementById('liveUser').textContent = this.value || '?';
+  });
+  document.getElementById('sqlPass').addEventListener('input', function() {
+    document.getElementById('livePass').textContent = this.value || '?';
+  });
+
+  // ❌ VULNERABILIDAD: SQL Injection simulado
+  function doLogin() {
+    const user = document.getElementById('sqlUser').value;
+    const pass = document.getElementById('sqlPass').value;
+    const result = document.getElementById('loginResult');
+    result.style.display = 'block';
+
+    // Simulación de SQL Injection bypass
+    const sqlInjectionPattern = /'\s*OR\s*'?\s*1\s*'?\s*=\s*'?\s*1/i;
+    const adminCredentials = (user === 'admin' && pass === 'admin123');
+
+    if (sqlInjectionPattern.test(user) || sqlInjectionPattern.test(pass)) {
+      result.className = 'login-result ok';
+      result.innerHTML = '⚠️ <strong>SQL Injection exitoso.</strong> Query: <code>SELECT * FROM users WHERE user=\'' + user + '\' AND pass=\'' + pass + '\'</code> → devuelve todas las filas.';
+    } else if (adminCredentials) {
+      result.className = 'login-result ok';
+      result.textContent = '✅ Acceso concedido. Bienvenido, admin.';
+    } else {
+      result.className = 'login-result err';
+      result.textContent = '✕ Credenciales incorrectas.';
+    }
+  }
+</script>
+
+</body>
+</html>
