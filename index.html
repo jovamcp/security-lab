@@ -6,7 +6,11 @@
   <title>ShopLab — Tienda Demo</title>
 
   <!-- ❌ VULNERABILIDAD #1: Script externo sin SRI y cargado por HTTP -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script 
+  src="https://code.jquery.com/jquery-3.6.0.min.js"
+  integrity="sha256-HASHFALSO123456789="
+  crossorigin="anonymous">
+  </script>
 
   <!-- ❌ VULNERABILIDAD #2: Script externo via protocolo relativo (sin https forzado) -->
   <script src="//cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
